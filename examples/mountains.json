@@ -1,0 +1,5 @@
+[
+  {"name":"Yr Wyddfa","altitude":1085,"range":"Eryri","country":"Cymru","isNorthern":true},
+  {"name":"Makalu","altitude":8485,"range":"Himalayas","country":"Nepal","isNorthern":true},
+  {"name":"Aconcagua","altitude":6961,"range":"Andes","country":"Argentina","isNorthern":false}
+]

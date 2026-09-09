@@ -9,15 +9,15 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.4</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
     <groupId>org.example</groupId>
-    <artifactId>MountainsDraft</artifactId>
+    <artifactId>mountains-collector</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>Mountains</name>
-    <description>Mountain REST API</description>
+    <name>Mountains Collector</name>
+    <description>Mountain catalogue REST API and Java HTTP client, developed from CS253 coursework.</description>
 
     <properties>
         <java.version>17</java.version>

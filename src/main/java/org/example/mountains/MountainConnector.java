@@ -2,303 +2,110 @@ package org.example.mountains;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * HTTP client - sends requests to the server and converts JSON responses into Java objects
- * REST API methods build a HTTP request, send it, and process the response in a try/catch
- * All public methods return an Optional, or empty Optional if parsing fails
+ * Java HTTP client for the mountain API. HTTP errors retain their status and raw body;
+ * an empty Optional means a transport or response-parsing failure.
  */
 public class MountainConnector {
-
-    private static final TypeReference<List<Mountain>> MOUNTAIN_LIST_TYPE = new TypeReference<>() {
-    };
-
+    private static final TypeReference<List<Mountain>> MOUNTAIN_LIST_TYPE = new TypeReference<>() {};
     private final String serviceUri;
-
-    private final HttpClient client = HttpClient.newHttpClient();
-
+    private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * Constructor
-     *
-     * @param serviceUri base URI of the server
-     */
     public MountainConnector(final String serviceUri) {
-        this.serviceUri = serviceUri;
+        URI base = URI.create(serviceUri);
+        if (!("http".equalsIgnoreCase(base.getScheme()) || "https".equalsIgnoreCase(base.getScheme()))
+                || base.getHost() == null || base.getRawQuery() != null || base.getRawFragment() != null) {
+            throw new IllegalArgumentException("Use an HTTP(S) base URI without a query or fragment.");
+        }
+        this.serviceUri = serviceUri.endsWith("/") ? serviceUri : serviceUri + "/";
     }
 
-
-    /**
-     * Add mountains
-     *
-     * @param mountains list of mountains
-     */
     public Optional<Response> addMountains(final List<Mountain> mountains) {
-
-        try {
-            String mountainsAsJson = objectMapper.writeValueAsString(mountains);
-
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(serviceUri + "mountains"))
-                    .header("Accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(mountainsAsJson))
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("POST", "mountains", mountains);
     }
 
-    /**
-     * Get mountains
-     */
     public Optional<Response> getAll() {
-        try {
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(serviceUri + "mountains"))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("GET", "mountains", null);
     }
 
-    /**
-     * Get mountains by country
-     *
-     * @param country country to search for
-     */
     public Optional<Response> getByCountry(final String country) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(serviceUri + "mountains/country/" + urlEncode(country)))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("GET", "mountains/country/" + urlEncode(country), null);
     }
 
-    /**
-     * Get mountains by country and range
-     *
-     * @param country country to search for
-     * @param range   mountain range to search for
-     */
     public Optional<Response> getByCountryAndRange(final String country, final String range) {
-        try {
-            String requestUri = serviceUri + "mountains/country/" + urlEncode(country)
-                    + "/range/" + urlEncode(range);
-
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(requestUri))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("GET", "mountains/country/" + urlEncode(country) + "/range/" + urlEncode(range), null);
     }
 
-    /**
-     * Get mountains by hemisphere
-     *
-     * @param isNorthern true for northern hemisphere
-     */
     public Optional<Response> getByHemisphere(final boolean isNorthern) {
-        try {
-            String requestUri = serviceUri + "mountains?isNorthern="
-                    + urlEncode(String.valueOf(isNorthern));
-
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(requestUri))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("GET", "mountains?isNorthern=" + isNorthern, null);
     }
 
-    /**
-     * Get mountains by country and altitude
-     *
-     * @param country  country to search for
-     * @param altitude minimum altitude
-     */
     public Optional<Response> getByCountryAltitude(final String country, final int altitude) {
-        try {
-            String requestUri = serviceUri + "mountains/country/" + urlEncode(country)
-                    + "?minAltitude=" + urlEncode(String.valueOf(altitude));
-
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(requestUri))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("GET", "mountains/country/" + urlEncode(country) + "?minAltitude=" + altitude, null);
     }
 
-    /**
-     * Get mountains by country, range, and name
-     *
-     * @param country country to search for
-     * @param range   mountain range to search for
-     * @param name    mountain name to search for
-     */
-    public Optional<Response> getByName(final String country, final String range,
-                                        final String name) {
-        try {
-            String requestUri = serviceUri + "mountains/country/" + urlEncode(country)
-                    + "/range/" + urlEncode(range)
-                    + "/name/" + urlEncode(name);
-
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(requestUri))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+    public Optional<Response> getByName(final String country, final String range, final String name) {
+        return send("GET", "mountains/country/" + urlEncode(country) + "/range/" + urlEncode(range)
+                + "/name/" + urlEncode(name), null);
     }
 
-    /**
-     * Get mountains by ID
-     *
-     * @param id mountain ID
-     */
     public Optional<Response> getById(final int id) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(serviceUri + "mountains/" + id))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("GET", "mountains/" + id, null);
     }
 
-    /**
-     * Update mountain
-     *
-     * @param id       mountain ID
-     * @param mountain mountain data
-     */
     public Optional<Response> updateMountain(final int id, final Mountain mountain) {
-        try {
-            String mountainAsJson = objectMapper.writeValueAsString(mountain);
-
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(serviceUri + "mountains/" + id))
-                    .header("Accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .PUT(HttpRequest.BodyPublishers.ofString(mountainAsJson))
-                    .build();
-
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
-            return Optional.empty();
-        }
+        return send("PUT", "mountains/" + id, mountain);
     }
 
-    /**
-     * Delete a mountain
-     *
-     * @param id mountain ID
-     */
     public Optional<Response> deleteMountain(final int id) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(serviceUri + "mountains/" + id))
-                    .header("Accept", "application/json")
-                    .DELETE()
-                    .build();
+        return send("DELETE", "mountains/" + id, null);
+    }
 
-            HttpResponse<String> response = client.send(
-                    request, HttpResponse.BodyHandlers.ofString());
-            return Optional.of(new Response(parseResponse(response.body()), response));
-        } catch (Exception exception) {
+    private Optional<Response> send(final String method, final String path, final Object body) {
+        try {
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(serviceUri + path))
+                    .timeout(Duration.ofSeconds(10)).header("Accept", "application/json");
+            if (body == null) {
+                request.method(method, HttpRequest.BodyPublishers.noBody());
+            } else {
+                request.header("Content-Type", "application/json")
+                        .method(method, HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+            }
+            HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+            // Error bodies describe a failure, not a Mountain. Keep them available through Response.
+            List<Mountain> mountains = response.statusCode() >= 400 ? List.of() : parseResponse(response.body());
+            return Optional.of(new Response(mountains, response));
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        } catch (IOException | IllegalArgumentException exception) {
             return Optional.empty();
         }
     }
 
-    /**
-     * Helper method to convert the response body into a list of mountains
-     *
-     * @param responseBody response body returned by the server
-     * @return list of mountains, or an empty list if the body is empty
-     * @throws Exception if JSON cannot be parsed
-     */
-    private List<Mountain> parseResponse(final String responseBody) throws Exception {
-        // No response body means there is no mountain data to return
-        if (responseBody == null) {
-            return new ArrayList<>();
+    private List<Mountain> parseResponse(final String body) throws IOException {
+        if (body == null || body.isBlank()) {
+            return List.of();
         }
-
-        // An empty response body means there is no mountain data to return
-        if (responseBody.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        if (responseBody.startsWith("[")) {
-            return objectMapper.readValue(responseBody, MOUNTAIN_LIST_TYPE);
-        }
-
-        Mountain mountain = objectMapper.readValue(responseBody, Mountain.class);
-
-        List<Mountain> mountains = new ArrayList<>();
-        mountains.add(mountain);
-        return mountains;
+        String json = body.strip();
+        return json.startsWith("[")
+                ? objectMapper.readValue(json, MOUNTAIN_LIST_TYPE)
+                : List.of(objectMapper.readValue(json, Mountain.class));
     }
 
-    /**
-     * Helper method to encode a value for use in URI
-     *
-     * @param arg value to encode
-     * @return encoded value
-     */
-    private String urlEncode(final String arg) {
-        return URLEncoder.encode(arg, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+    private String urlEncode(final String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

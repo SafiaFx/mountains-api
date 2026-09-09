@@ -2,6 +2,8 @@ package org.example.mountains;
 
 
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * Data transfer object used by both the server and the client.
  *
@@ -92,8 +94,8 @@ public final class Mountain {
         if (!(obj instanceof Mountain mountain)) {
             return false;
         }
-        return name.equals(mountain.getName()) && range.equals(mountain.getRange())
-                && country.equals(mountain.getCountry());
+        return Objects.equals(name, mountain.getName()) && Objects.equals(range, mountain.getRange())
+                && Objects.equals(country, mountain.getCountry());
     }
 
     @Override
@@ -121,6 +123,8 @@ public final class Mountain {
         this.country = country;
     }
 
+    @JsonProperty("isNorthern")
+    @JsonAlias("northern")
     public void setNorthern(boolean northern) {
         isNorthern = northern;
     }
